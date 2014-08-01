@@ -1,0 +1,27 @@
+apply plugin: 'maven'
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+
+    maven {
+        url 'http://clojars.org/repo/'
+    }
+    maven {
+        url 'http://conjars.org/repo/'
+    }
+}
+
+dependencies {
+  compile group: 'org.jruby', name: 'jruby-core', version: '1.7.+'
+  compile group: 'org.jruby', name: 'jruby-stdlib', version: '1.7.+'
+  compile group: 'com.github.jnr', name: 'jffi', version: '1.2.7'
+  compile group: 'org.apache.storm', name: 'storm-core', version: '0.9.1-incubating'
+  runtime group: 'org.apache.storm', name: 'storm-core', version: '0.9.1-incubating', transitive: true
+}
+
+jar {
+    from "$buildDir/classes/main"
+}
+
+// vim: ft=groovy
