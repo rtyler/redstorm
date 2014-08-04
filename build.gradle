@@ -1,27 +1,56 @@
 apply plugin: 'maven'
 apply plugin: 'java'
 
-repositories {
-    mavenCentral()
+version = '0.0.14-SNAPSHOT'
+group = 'com.lookout'
 
-    maven {
-        url 'http://clojars.org/repo/'
-    }
-    maven {
-        url 'http://conjars.org/repo/'
-    }
+repositories {
+  mavenCentral()
+  mavenLocal()
+
+  maven {
+    url 'http://clojars.org/repo/'
+  }
+  maven {
+    url 'http://conjars.org/repo/'
+  }
+}
+
+configurations {
+  runtime.exclude module: 'storm-core'
 }
 
 dependencies {
   compile group: 'org.jruby', name: 'jruby-core', version: '1.7.+'
   compile group: 'org.jruby', name: 'jruby-stdlib', version: '1.7.+'
   compile group: 'com.github.jnr', name: 'jffi', version: '1.2.7'
-  compile group: 'org.apache.storm', name: 'storm-core', version: '0.9.1-incubating'
-  runtime group: 'org.apache.storm', name: 'storm-core', version: '0.9.1-incubating', transitive: true
+
+  compile group: 'org.apache.storm',
+           name: 'storm-core',
+        version: '0.9.1-incubating'
+}
+
+task compileruby(type: Exec) {
+  workingDir 'lib/red_storm'
+  commandLine 'jrubyc'
+  args '--verbose',
+       '--prefix', 'red_storm',
+       '--target', '../../build/classes/main/redstorm',
+       '.'
 }
 
 jar {
-    from "$buildDir/classes/main"
+  dependsOn compileruby
+  from "$buildDir/classes/main"
+  // Bring all our runtime libraries into the package. This will make it easier
+  // for developers to just drop in the redstorm.jar into their storm topology
+  // jars and have everything kinda-sorta just work
+  from configurations.runtime.collect {
+    it.isDirectory() ? it : zipTree(it).matching {
+      exclude '**/META-INF/*.SF,**/META-INF/*.DSA,**/META-INF/*.RSA,**/META-INF/SIG-*'
+      include '**/*'
+    }
+  }
 }
 
 // vim: ft=groovy
