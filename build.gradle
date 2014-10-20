@@ -25,10 +25,14 @@ dependencies {
     compile group: 'org.apache.storm',
             name: 'storm-core',
             version: '0.9.2-incubating'
+
+    jrubyExec group: 'rubygems', name: 'rspec', version: '2.13+'
+    jrubyExec group: 'rubygems', name: 'coveralls', version: '0.6.7+'
 }
 
 configurations {
     runtime.exclude module: 'storm-core'
+    jrubyExec.extendsFrom compile
 }
 
 sourceSets {
@@ -60,6 +64,14 @@ project.compileJava.dependsOn compileRedstormJRuby
 jar {
     from 'lib'
 }
+
+task spec(type: JRubyExec) {
+    group 'JRuby'
+    description 'Run the RSpec examples'
+    jrubyArgs '-S'
+    script 'rspec'
+}
+
 
 // vim: ft=groovy et ts=4 sw=4
 
