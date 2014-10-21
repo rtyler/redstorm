@@ -1,7 +1,6 @@
 require 'java'
 require 'red_storm/configurator'
 require 'red_storm/environment'
-require 'pathname'
 
 java_import 'backtype.storm.tuple.Fields'
 java_import 'backtype.storm.tuple.Values'
@@ -140,7 +139,7 @@ module RedStorm
       # below non-dry see Spout class
       def self.inherited(subclass)
         path = (caller.first.to_s =~ /^(.+):\d+.*$/) ? $1 : raise(BoltError, "unable to extract base topology class path from #{caller.first.inspect}")
-        subclass.base_class_path = Pathname.new(path).relative_path_from(Pathname.new(RedStorm::BASE_PATH)).to_s
+        subclass.base_class_path = File.expand_path(path)
       end
 
       def self.base_class_path=(path)
