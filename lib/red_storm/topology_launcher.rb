@@ -23,16 +23,6 @@ java_import 'backtype.storm.tuple.Fields'
 java_import 'backtype.storm.tuple.Tuple'
 java_import 'backtype.storm.tuple.Values'
 
-# java_import 'redstorm.storm.jruby.JRubyBolt'
-# java_import 'redstorm.storm.jruby.JRubySpout'
-# java_import 'redstorm.storm.jruby.JRubyBatchBolt'
-# java_import 'redstorm.storm.jruby.JRubyBatchCommitterBolt'
-# java_import 'redstorm.storm.jruby.JRubyBatchSpout'
-# java_import 'redstorm.storm.jruby.JRubyTransactionalSpout'
-# java_import 'redstorm.storm.jruby.JRubyTransactionalBolt'
-# java_import 'redstorm.storm.jruby.JRubyTransactionalCommitterBolt'
-# java_import 'redstorm.storm.jruby.JRubyProxyFunction'
-
 java_package 'redstorm'
 
 # TopologyLauncher is the application entry point when launching a topology. Basically it will
@@ -54,7 +44,14 @@ class TopologyLauncher
     $:.unshift File.expand_path(launch_path + '/lib')
     $:.unshift File.expand_path(launch_path + '/target/lib')
 
-    require "#{class_path}"
+    begin
+      require "#{class_path}"
+    rescue => ex
+      puts "Failed to load #{class_path}! (#{ex.inspect})"
+      puts ex.backtrace.join("\n")
+      # Re-raising to exit out of the scripting container
+      raise
+    end
 
     if RedStorm::Configuration.topology_class.nil? || !RedStorm::Configuration.topology_class.method_defined?(:start)
       puts("\nERROR: invalid topology class. make sure your topology class is a subclass of one of the DSL topology classes or that your class sets RedStorm::Configuration.topology_class and defines the start method\n\n")

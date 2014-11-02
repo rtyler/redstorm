@@ -6,7 +6,7 @@ buildscript {
 plugins {
   id "com.github.jruby-gradle.jar" version "0.1.2"
   // https://github.com/jruby-gradle/jruby-gradle-jar-plugin/issues/18
-  id "com.github.jruby-gradle.base" version "0.1.3"
+  id "com.github.jruby-gradle.base" version "0.1.4"
   id "com.github.johnrengelman.shadow" version "1.1.2"
 }
 
@@ -15,7 +15,7 @@ apply plugin: 'java'
 apply plugin: 'com.jfrog.bintray'
 
 
-version = '0.7.0'
+version = '0.7.1'
 group = 'com.github.jruby-gradle'
 sourceCompatibility = 1.7
 
@@ -44,6 +44,8 @@ dependencies {
 }
 
 configurations {
+    // We don't need to include storm-core in the runtime dependencies for the
+    // redstorm.jar since it's provided by the storm cluster this code runs on top of
     runtime.exclude module: 'storm-core'
     jrubyExec.extendsFrom compile
 }
