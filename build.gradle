@@ -1,63 +1,46 @@
-buildscript {
-    repositories { jcenter() }
-    dependencies { classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:0.5' }
-}
+//
+// Primary gradle file for building and testing redstorm
+//
 
 plugins {
   id "com.github.jruby-gradle.jar" version "0.1.2"
   // https://github.com/jruby-gradle/jruby-gradle-jar-plugin/issues/18
   id "com.github.jruby-gradle.base" version "0.1.4"
   id "com.github.johnrengelman.shadow" version "1.1.2"
+  id "com.jfrog.bintray" version "0.6"
 }
 
 apply plugin: 'maven'
 apply plugin: 'java'
-apply plugin: 'com.jfrog.bintray'
-
 
 version = '0.7.1'
 group = 'com.github.jruby-gradle'
 sourceCompatibility = 1.7
 
+// Any time we're not expicitly saying "build me a release build" we'll change
+// the version to -SNAPSHOT
 if (System.env.RELEASE != '1') {
     version = "${version}-SNAPSHOT"
 }
 
 import com.github.jrubygradle.JRubyExec
 
-repositories {
-    mavenCentral()
-
-    maven { url 'http://clojars.org/repo/' }
-    maven { url 'http://conjars.org/repo/' }
-}
-
 dependencies {
+    // These compile dependencies are required just to compile our Java-based
+    // redstorm code
     compile group: 'com.github.jnr', name: 'jffi', version: '1.2.7'
-
     compile group: 'org.apache.storm',
             name: 'storm-core',
             version: '0.9.2-incubating'
 
+    // Gem dependencies needed to run our Ruby development tasks like 'spec'
     jrubyExec group: 'rubygems', name: 'rspec', version: '2.13+'
     jrubyExec group: 'rubygems', name: 'coveralls', version: '0.6.7+'
 }
 
-configurations {
-    // We don't need to include storm-core in the runtime dependencies for the
-    // redstorm.jar since it's provided by the storm cluster this code runs on top of
-    runtime.exclude module: 'storm-core'
-    jrubyExec.extendsFrom compile
-}
-
-sourceSets {
-  main {
-    java {
-        srcDirs 'src/main',
-                "${buildDir}/generated/java"
-    }
-  }
-}
+////////////////////////////////////////////////////////////////////////////////
+//  DEVELOPMENT TASKS
+////////////////////////////////////////////////////////////////////////////////
 
 task compileRedstormJRuby(type: JRubyExec) {
     group 'build'
@@ -72,7 +55,9 @@ task compileRedstormJRuby(type: JRubyExec) {
 
     file("${buildDir}/generated/java").mkdirs()
 }
-
+// Chain our compileJava task off of the Ruby compilation task, this makes sure
+// we are rebuilding the generated Java code from our Ruby files every time we
+// need to rebuild the jar/recompile
 project.compileJava.dependsOn compileRedstormJRuby
 
 task spec(type: JRubyExec) {
@@ -82,11 +67,43 @@ task spec(type: JRubyExec) {
     script 'rspec'
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
+
+repositories {
+    mavenCentral()
+
+    // These two repositories are for storm dependencies
+    maven { url 'http://clojars.org/repo/' }
+    maven { url 'http://conjars.org/repo/' }
+}
+
+configurations {
+    // We don't need to include storm-core in the runtime dependencies for the
+    // redstorm.jar since it's provided by the storm cluster this code runs on top of
+    runtime.exclude module: 'storm-core'
+
+    // Make sure that any task using the jrubyExec configuration inherits the
+    // dependencies enumerated in the `compile` configuration
+    jrubyExec.extendsFrom compile
+}
+
+sourceSets {
+  main {
+    java {
+        srcDirs 'src/main',
+                "${buildDir}/generated/java"
+    }
+  }
+}
+
+// In addition to all of the compiled java sources, we need to include the Ruby
+// code from ./lib in the .jar archive
 jar {
     from 'lib'
 }
 
+// Make sure we're created a sources jar to be published to jcenter
 task sourcesJar(type: Jar, dependsOn: classes) {
     classifier = 'sources'
     from sourceSets.main.allSource
@@ -95,6 +112,7 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 artifacts {
     archives sourcesJar
 }
+
 
 
 // Ensure we don't fail in CI or on a system without these values set in
