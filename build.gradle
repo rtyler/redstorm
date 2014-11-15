@@ -13,7 +13,7 @@ plugins {
 apply plugin: 'maven'
 apply plugin: 'java'
 
-version = '0.7.1'
+version = '0.7.2'
 group = 'com.github.jruby-gradle'
 sourceCompatibility = 1.7
 
@@ -43,17 +43,24 @@ dependencies {
 ////////////////////////////////////////////////////////////////////////////////
 
 task compileRedstormJRuby(type: JRubyExec) {
+    def generatedDir = file("${buildDir}/generated/java")
+
     group 'build'
     description "Compile the right Ruby files to Java files for compilation"
+    inputs.dir('lib/red_storm')
+    outputs.dir(generatedDir)
+
     workingDir 'lib/red_storm'
     jrubyArgs '-S'
     script 'jrubyc'
     scriptArgs '--prefix', 'red_storm',
        '--java',
-       '--target', '../../build/generated/java',
+       '--target', generatedDir.absolutePath,
        'topology_launcher.rb'
 
-    file("${buildDir}/generated/java").mkdirs()
+    doFirst {
+        generatedDir.mkdirs()
+    }
 }
 // Chain our compileJava task off of the Ruby compilation task, this makes sure
 // we are rebuilding the generated Java code from our Ruby files every time we
