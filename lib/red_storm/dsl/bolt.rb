@@ -1,6 +1,8 @@
 require 'java'
 require 'red_storm/configurator'
 require 'red_storm/environment'
+require 'red_storm/loggable'
+require 'pathname'
 
 java_import 'backtype.storm.tuple.Fields'
 java_import 'backtype.storm.tuple.Values'
@@ -11,15 +13,12 @@ module RedStorm
     class BoltError < StandardError; end
 
     class Bolt
+      include Loggable
       attr_reader :collector, :context, :config
 
       def self.java_proxy; "Java::RedstormStormJruby::JRubyBolt"; end
 
       # DSL class methods
-
-      def self.log
-        @log ||= Java::OrgApacheLog4j::Logger.getLogger(self.name)
-      end
 
       def self.output_fields(*fields)
         @fields = fields.map(&:to_s)
@@ -58,10 +57,6 @@ module RedStorm
       end
 
       # DSL instance methods
-
-      def log
-        self.class.log
-      end
 
       def unanchored_emit(*values)
         @collector.emit_tuple(Values.new(*values))
