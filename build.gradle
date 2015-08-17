@@ -20,6 +20,8 @@ apply plugin: 'com.jfrog.bintray'
 
 version = '0.7.3'
 group = 'com.github.jruby-gradle'
+description = "RedStorm integrates Ruby code via JRuby into the Storm distributed computation system"
+defaultTasks 'check', 'assemble'
 
 // Any time we're not expicitly saying "build me a release build" we'll change
 // the version to -SNAPSHOT
@@ -114,6 +116,23 @@ sourceSets {
     }
 }
 
+/* Needed, according to @ysb33r to make sure we build against JDK7 */
+plugins.withType(JavaPlugin) {
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+
+
+    project.tasks.withType(JavaCompile) { task ->
+        task.sourceCompatibility = project.sourceCompatibility
+        task.targetCompatibility = project.targetCompatibility
+    }
+
+    project.tasks.withType(GroovyCompile) { task ->
+        task.sourceCompatibility = project.sourceCompatibility
+        task.targetCompatibility = project.targetCompatibility
+    }
+}
+
 // In addition to all of the compiled java sources, we need to include the Ruby
 // code from ./lib in the .jar archive
 jar {
@@ -135,8 +154,13 @@ bintray {
     user = project.bintrayUser
     key = project.bintrayKey
     publish = true
-    dryRun = false
     configurations = ['archives']
+    /*
+     * Only only publish when we're tagging a release and if we've executed on
+     * the JDK7 build. This is to prevent multiple attempts by the build matrix
+     * to publish the artifacts
+     */
+    dryRun = !((System.env.TRAVIS_TAG as boolean) && (System.env.TRAVIS_JDK_VERSION == 'oraclejdk7'))
 
     pkg {
         userOrg = 'jruby-gradle'
@@ -147,7 +171,7 @@ bintray {
         version {
             name = project.version
             vcsTag = "v${project.version}"
-            desc = 'JRuby integration & DSL for the Storm distributed realtime computation system'
+            desc = project.description
         }
     }
 }

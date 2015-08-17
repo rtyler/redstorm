@@ -1,7 +1,19 @@
-language: ruby
-rvm:
-  - jruby-1.7.11
-before_script: bundle exec rake storm_deps
-script: bundle exec rspec
+language: java
+sudo: false
+install:
+- "./gradlew clean"
+script:
+- "./gradlew -S -i"
+jdk:
+- oraclejdk7
+- oraclejdk8
+- openjdk7
 notifications:
-  irc: "chat.freenode.net#redstorm"
+  irc: chat.freenode.net#redstorm
+cache:
+  directories:
+  - "$HOME/.gradle"
+after_success: "./gradlew bintrayUpload -i -PbintrayUser=rtyler -PbintrayKey=${BINTRAY_KEY}"
+env:
+  global:
+    secure: btMn50KjfaB7rNFrNfQtqOyJEVF30rS26A7p6h4+yyn4IyjaRlc+wLn3AXstoYZ79kAVaVM7vnteLxjvCIkIW26PqEAWm/t3H8v3e7QmXf5kjiQa8/mIswo1eHByb9AF4QtC39goQawRzFNL96xro5gxBTPtlb982ebdIQwtr00=
