@@ -1,5 +1,7 @@
 require 'spec_helper'
 require 'red_storm/dsl/topology'
+require 'red_storm/dsl/spout'
+require 'red_storm/dsl/bolt'
 
 describe RedStorm::SimpleTopology do
 
@@ -21,10 +23,10 @@ describe RedStorm::SimpleTopology do
     Object.send(:remove_const, "SpoutClass2") if Object.const_defined?("SpoutClass2")
     Object.send(:remove_const, "BoltClass1") if Object.const_defined?("BoltClass1")
     Object.send(:remove_const, "BoltClass2") if Object.const_defined?("BoltClass2")
-    class SpoutClass1; end
-    class SpoutClass2; end
-    class BoltClass1; end
-    class BoltClass2; end
+    class SpoutClass1 < RedStorm::DSL::Spout; end
+    class SpoutClass2 < RedStorm::DSL::Spout; end
+    class BoltClass1 < RedStorm::DSL::Bolt; end
+    class BoltClass2 < RedStorm::DSL::Bolt; end
     SpoutClass1.should_receive(:base_class_path).at_least(0).times.and_return("base_path")
     SpoutClass2.should_receive(:base_class_path).at_least(0).times.and_return("base_path")
     SpoutClass1.should_receive(:java_proxy).at_least(0).times.and_return("RedStorm::JRubySpout")
@@ -125,8 +127,30 @@ describe RedStorm::SimpleTopology do
             output_fields :f3
           end
         end
-        Topology1.spouts.first.output_fields.should == ["f1", "f2"]
-        Topology1.spouts.last.output_fields.should == [ "f3"]
+        Topology1.spouts.first.output_fields.should == { "default" => ["f1", "f2"] }
+        Topology1.spouts.last.output_fields.should == { "default" => ["f3"] }
+      end
+
+      it "should default output_fields to the class defined fields" do
+        class SpoutClass1
+          output_fields :f1, :f2
+        end
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1
+        end
+        Topology1.spouts.first.output_fields.should == { "default" => ["f1", "f2"] }
+      end
+
+      it "should override class defined fields with topology output fields" do
+        class SpoutClass1
+          output_fields :f1, :f2
+        end
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1 do
+            output_fields :f3, :f4
+          end
+        end
+        Topology1.spouts.first.output_fields.should == { "default" => ["f3", "f4"] }
       end
 
     end
@@ -208,8 +232,31 @@ describe RedStorm::SimpleTopology do
             output_fields :f3
           end
         end
-        Topology1.bolts.first.output_fields.should == ["f1", "f2"]
-        Topology1.bolts.last.output_fields.should == [ "f3"]
+        Topology1.bolts.first.output_fields.should == { "default" => ["f1", "f2"] }
+        Topology1.bolts.last.output_fields.should == { "default" => ["f3"] }
+      end
+
+      it "should default output_fields to the class defined fields" do
+        class BoltClass1
+          output_fields :f1, :f2
+        end
+        class Topology1 < RedStorm::SimpleTopology
+          bolt BoltClass1 do
+          end
+        end
+        Topology1.bolts.first.output_fields.should == { "default" => ["f1", "f2"] }
+      end
+
+      it "should override class defined fields with topology output fields" do
+        class BoltClass1
+          output_fields :f1, :f2
+        end
+        class Topology1 < RedStorm::SimpleTopology
+          bolt BoltClass1 do
+            output_fields :f3, :f4
+          end
+        end
+        Topology1.bolts.first.output_fields.should == { "default" => ["f3", "f4"] }
       end
 
     end
@@ -320,8 +367,8 @@ describe RedStorm::SimpleTopology do
 
       RedStorm::TopologyBuilder.should_receive(:new).and_return(builder)
       RedStorm::Configurator.should_receive(:new).and_return(configurator)
-      RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass1", []).and_return(jruby_spout1)
-      RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass2", []).and_return(jruby_spout2)
+      RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass1", {}).and_return(jruby_spout1)
+      RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass2", {}).and_return(jruby_spout2)
 
       builder.should_receive("setSpout").with('spout_class1', jruby_spout1, 1).and_return(declarer)
       builder.should_receive("setSpout").with('spout_class2', jruby_spout2, 1).and_return(declarer)
@@ -353,12 +400,13 @@ describe RedStorm::SimpleTopology do
       configurator = mock(RedStorm::Configurator)
       jruby_bolt1 = mock(RedStorm::JRubyBolt)
       jruby_bolt2 = mock(RedStorm::JRubyBolt)
+      jruby_bolt3 = mock(RedStorm::JRubyBolt)
       declarer = mock("Declarer")
 
       RedStorm::TopologyBuilder.should_receive(:new).and_return(builder)
       RedStorm::Configurator.should_receive(:new).and_return(configurator)
-      RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass1", []).and_return(jruby_bolt1)
-      RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass2", []).and_return(jruby_bolt2)
+      RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass1", {}).and_return(jruby_bolt1)
+      RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass2", {}).and_return(jruby_bolt2)
 
       builder.should_receive("setBolt").with("id1", jruby_bolt1, 2).and_return(declarer)
       builder.should_receive("setBolt").with("id2", jruby_bolt2, 3).and_return(declarer)
@@ -389,8 +437,8 @@ describe RedStorm::SimpleTopology do
         backtype_config = mock(Backtype::Config)
         Backtype::Config.should_receive(:new).any_number_of_times.and_return(backtype_config)
         backtype_config.should_receive(:put)
-        RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass1", []).and_return(jruby_bolt)
-        RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass1", []).and_return(jruby_spout)
+        RedStorm::JRubyBolt.should_receive(:new).with("base_path", "BoltClass1", {}).and_return(jruby_bolt)
+        RedStorm::JRubySpout.should_receive(:new).with("base_path", "SpoutClass1", {}).and_return(jruby_spout)
         builder.should_receive("setBolt").with('bolt_class1', jruby_bolt, 1).and_return(@declarer)
         builder.should_receive("setSpout").with('1', jruby_spout, 1).and_return(@declarer)
         @declarer.should_receive("addConfigurations").twice
@@ -407,7 +455,20 @@ describe RedStorm::SimpleTopology do
         end
 
         RedStorm::Fields.should_receive(:new).with("f1").and_return("fields")
-        @declarer.should_receive("fieldsGrouping").with('1', "fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'default', "fields")
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support single string fields with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, { :fields => "f1" }, 'custom_stream'
+          end
+        end
+
+        RedStorm::Fields.should_receive(:new).with("f1").and_return("fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'custom_stream', "fields")
         Topology1.new.start(:cluster)
       end
 
@@ -420,7 +481,20 @@ describe RedStorm::SimpleTopology do
         end
 
         RedStorm::Fields.should_receive(:new).with("s1").and_return("fields")
-        @declarer.should_receive("fieldsGrouping").with('1', "fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'default', "fields")
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support single symbolic fields with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, { :fields => :s1 }, 'custom_stream'
+          end
+        end
+
+        RedStorm::Fields.should_receive(:new).with("s1").and_return("fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'custom_stream', "fields")
         Topology1.new.start(:cluster)
       end
 
@@ -433,7 +507,20 @@ describe RedStorm::SimpleTopology do
         end
 
         RedStorm::Fields.should_receive(:new).with("f1", "f2").and_return("fields")
-        @declarer.should_receive("fieldsGrouping").with('1', "fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'default', "fields")
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support string array fields with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, { :fields => ["f1", "f2"] }, 'custom_stream'
+          end
+        end
+
+        RedStorm::Fields.should_receive(:new).with("f1", "f2").and_return("fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'custom_stream', "fields")
         Topology1.new.start(:cluster)
       end
 
@@ -446,7 +533,20 @@ describe RedStorm::SimpleTopology do
         end
 
         RedStorm::Fields.should_receive(:new).with("s1", "s2").and_return("fields")
-        @declarer.should_receive("fieldsGrouping").with('1', "fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'default', "fields")
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support symbolic array fields with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, { :fields => [:s1, :s2] }, 'custom_stream'
+          end
+        end
+
+        RedStorm::Fields.should_receive(:new).with("s1", "s2").and_return("fields")
+        @declarer.should_receive("fieldsGrouping").with('1', 'custom_stream', "fields")
         Topology1.new.start(:cluster)
       end
 
@@ -458,7 +558,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("shuffleGrouping").with('1')
+        @declarer.should_receive("shuffleGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support shuffle with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :shuffle, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("shuffleGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
 
@@ -470,7 +582,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("localOrShuffleGrouping").with('1')
+        @declarer.should_receive("localOrShuffleGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support local_or_shuffle with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :local_or_shuffle, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("localOrShuffleGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
 
@@ -482,7 +606,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("noneGrouping").with('1')
+        @declarer.should_receive("noneGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support none" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :none, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("noneGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
 
@@ -494,7 +630,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("globalGrouping").with('1')
+        @declarer.should_receive("globalGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support global with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :global, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("globalGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
 
@@ -506,7 +654,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("allGrouping").with('1')
+        @declarer.should_receive("allGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support all with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :all, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("allGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
 
@@ -518,7 +678,19 @@ describe RedStorm::SimpleTopology do
           end
         end
 
-        @declarer.should_receive("directGrouping").with('1')
+        @declarer.should_receive("directGrouping").with('1', 'default')
+        Topology1.new.start(:cluster)
+      end
+
+      it "should support direct with a stream" do
+        class Topology1 < RedStorm::SimpleTopology
+          spout SpoutClass1, :id => 1
+          bolt BoltClass1 do
+            source 1, :direct, 'custom_stream'
+          end
+        end
+
+        @declarer.should_receive("directGrouping").with('1', 'custom_stream')
         Topology1.new.start(:cluster)
       end
     end
@@ -576,7 +748,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == '1'
       Topology1.bolts.first.id.should == '2'
-      Topology1.bolts.first.sources.first.should == ['1', {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ['1', {:shuffle => nil}, 'default']
     end
 
     it "should support explicit string ids" do
@@ -590,7 +762,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == "id1"
       Topology1.bolts.first.id.should == "id2"
-      Topology1.bolts.first.sources.first.should == ["id1", {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ["id1", {:shuffle => nil}, 'default']
     end
 
     it "should support implicit string ids" do
@@ -604,7 +776,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == "spout_class1"
       Topology1.bolts.first.id.should == "bolt_class1"
-      Topology1.bolts.first.sources.first.should == ["spout_class1", {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ["spout_class1", {:shuffle => nil}, 'default']
     end
 
     it "should support implicit symbol ids" do
@@ -618,7 +790,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == "spout_class1"
       Topology1.bolts.first.id.should == "bolt_class1"
-      Topology1.bolts.first.sources.first.should == ['spout_class1', {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ['spout_class1', {:shuffle => nil}, 'default']
     end
 
     it "should support implicit class ids" do
@@ -632,7 +804,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == "spout_class1"
       Topology1.bolts.first.id.should == "bolt_class1"
-      Topology1.bolts.first.sources.first.should == ["spout_class1", {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ["spout_class1", {:shuffle => nil}, 'default']
     end
 
     it "should raise on unresolvable" do
@@ -646,7 +818,7 @@ describe RedStorm::SimpleTopology do
 
       Topology1.spouts.first.id.should == "spout_class1"
       Topology1.bolts.first.id.should == "bolt_class1"
-      Topology1.bolts.first.sources.first.should == ["dummy", {:shuffle => nil}]
+      Topology1.bolts.first.sources.first.should == ["dummy", {:shuffle => nil}, 'default']
 
       lambda {Topology1.resolve_ids!(Topology1.spouts + Topology1.bolts)}.should raise_error RuntimeError, "cannot resolve BoltClass1 source id=dummy"
     end
