@@ -162,7 +162,7 @@ module RedStorm
       # below non-dry see Bolt class
       def self.inherited(subclass)
         path = (caller.first.to_s =~ /^(.+):\d+.*$/) ? $1 : raise(SpoutError, "unable to extract base topology class path from #{caller.first.inspect}")
-        subclass.base_class_path = Pathname.new(path).relative_path_from(Pathname.new(RedStorm::BASE_PATH)).to_s
+        subclass.base_class_path = File.expand_path(path)
       end
 
       def self.base_class_path=(path)

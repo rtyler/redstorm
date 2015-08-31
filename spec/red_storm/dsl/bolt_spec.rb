@@ -900,5 +900,11 @@ describe RedStorm::SimpleBolt do
       end
     end
 
+    describe 'inherited' do
+      it 'should calculate base class path correctly' do
+        expect(File).to receive(:expand_path).with(__FILE__)
+        class TestBolt < RedStorm::SimpleBolt; end
+      end
+    end
   end
 end
