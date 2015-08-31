@@ -895,5 +895,12 @@ describe RedStorm::SimpleSpout do
         spout.get_component_configuration.should be_instance_of(Backtype::Config)
       end
     end
+
+    describe 'inherited' do
+      it 'should calculate base class path correctly' do
+        expect(File).to receive(:expand_path).with(__FILE__)
+        class TestSpout < RedStorm::SimpleSpout; end
+      end
+    end
   end
 end
