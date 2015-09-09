@@ -37,6 +37,15 @@ class TopologyLauncher
     end
 
     env = args[0].to_sym
+
+    # If we're in the "cluster" mode that means we're running in an embedded JRuby
+    # and we should modify our environment to suit that, see:
+    # <https://github.com/jruby-gradle/redstorm/issues/12>
+    if env == :cluster
+      Dir.chdir('uri:classloader:/')
+      ENV['JARS_HOME'] = 'uri:classloader:/jars'
+      $LOAD_PATH.unshift('uri:classloader://')
+    end
     class_path = args[1]
 
     launch_path = Dir.pwd
