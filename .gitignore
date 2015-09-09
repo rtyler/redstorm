@@ -21,3 +21,5 @@
 *.sw*
 .gradle/
 build/
+.idea/
+redstorm.i*
